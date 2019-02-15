@@ -53,6 +53,10 @@ class FirRenderer(builder: StringBuilder) : FirVisitorVoid() {
         printer.popIndent()
     }
 
+    fun newLine() {
+        println()
+    }
+
     override fun visitElement(element: FirElement) {
         element.acceptChildren(this)
     }
@@ -211,22 +215,32 @@ class FirRenderer(builder: StringBuilder) : FirVisitorVoid() {
     }
 
     private fun FirDeclarationContainer.renderDeclarations() {
+        renderInBraces {
+            for (declaration in declarations) {
+                declaration.accept(this@FirRenderer)
+                println()
+            }
+        }
+    }
+
+    fun renderInBraces(f: () -> Unit) {
         println(" {")
         pushIndent()
-        for (declaration in declarations) {
-            declaration.accept(this@FirRenderer)
-            println()
-        }
+        f()
         popIndent()
         println("}")
     }
 
-    override fun visitRegularClass(regularClass: FirRegularClass) {
-        visitMemberDeclaration(regularClass)
+    fun renderSupertypes(regularClass: FirRegularClass) {
         if (regularClass.superTypeRefs.isNotEmpty()) {
             print(" : ")
             regularClass.superTypeRefs.renderSeparated()
         }
+    }
+
+    override fun visitRegularClass(regularClass: FirRegularClass) {
+        visitMemberDeclaration(regularClass)
+        renderSupertypes(regularClass)
         regularClass.renderDeclarations()
     }
 
@@ -342,14 +356,12 @@ class FirRenderer(builder: StringBuilder) : FirVisitorVoid() {
     }
 
     override fun visitBlock(block: FirBlock) {
-        println(" {")
-        pushIndent()
-        for (statement in block.statements) {
-            statement.accept(this)
-            println()
+        renderInBraces {
+            for (statement in block.statements) {
+                statement.accept(this)
+                println()
+            }
         }
-        popIndent()
-        println("}")
     }
 
     override fun visitTypeAlias(typeAlias: FirTypeAlias) {
@@ -657,8 +669,10 @@ class FirRenderer(builder: StringBuilder) : FirVisitorVoid() {
                 buildString {
                     append("ft<")
                     append(lowerBound.asString())
+                    append(lowerBound.nullability.suffix)
                     append(", ")
                     append(upperBound.asString())
+                    append(upperBound.nullability.suffix)
                     append(">")
                 }
             }

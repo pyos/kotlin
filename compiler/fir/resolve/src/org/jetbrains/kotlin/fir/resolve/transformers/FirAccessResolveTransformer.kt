@@ -14,10 +14,12 @@ import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
 import org.jetbrains.kotlin.fir.references.FirResolvedCallableReferenceImpl
+import org.jetbrains.kotlin.fir.resolve.FirScopeProvider
 import org.jetbrains.kotlin.fir.resolve.lookupSuperTypes
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction.NEXT
 import org.jetbrains.kotlin.fir.scopes.impl.*
+import org.jetbrains.kotlin.fir.service
 import org.jetbrains.kotlin.fir.symbols.ConeCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
@@ -53,7 +55,7 @@ class FirAccessResolveTransformer : FirAbstractTreeTransformerWithSuperTypes(rev
 
     private fun FirRegularClass.buildUseSiteScope(useSiteSession: FirSession = session): FirClassUseSiteScope {
         val superTypeScope = FirCompositeScope(mutableListOf())
-        val declaredScope = FirClassDeclaredMemberScope(this, useSiteSession)
+        val declaredScope = useSiteSession.service<FirScopeProvider>().getDeclaredMemberScope(this, useSiteSession)
         lookupSuperTypes(this, lookupInterfaces = true, deep = false)
             .mapNotNullTo(superTypeScope.scopes) { useSiteSuperType ->
                 if (useSiteSuperType is ConeClassErrorType) return@mapNotNullTo null

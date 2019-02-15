@@ -66,6 +66,10 @@ sealed class ConeKotlinType : ConeKotlinTypeProjection(), ConeTypedProjection {
     abstract val nullability: ConeNullability
 }
 
+val ConeKotlinType.isNullable: Boolean get() = nullability != ConeNullability.NOT_NULL
+
+val ConeKotlinType.isMarkedNullable: Boolean get() = nullability == ConeNullability.NULLABLE
+
 class ConeKotlinErrorType(val reason: String) : ConeKotlinType() {
     override val typeArguments: Array<out ConeKotlinTypeProjection>
         get() = EMPTY_ARRAY
