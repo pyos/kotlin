@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.fir.FirRenderer
 import org.jetbrains.kotlin.fir.createSession
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaClass
+import org.jetbrains.kotlin.fir.java.declarations.FirJavaField
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaMethod
 import org.jetbrains.kotlin.fir.java.scopes.JavaClassEnhancementScope
 import org.jetbrains.kotlin.fir.resolve.FirScopeProvider
@@ -33,6 +34,7 @@ import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.fir.scopes.impl.FirCompositeScope
 import org.jetbrains.kotlin.fir.service
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.psiUtil.getChildrenOfType
@@ -157,12 +159,8 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
                         val renderedDeclarations = mutableListOf<FirDeclaration>()
                         for (declaration in javaClass.declarations) {
                             if (declaration in renderedDeclarations) continue
-                            if (declaration !is FirJavaMethod) {
-                                declaration.accept(renderer, null)
-                                renderer.newLine()
-                                renderedDeclarations += declaration
-                            } else {
-                                enhancementScope.processFunctionsByName(declaration.name) { symbol ->
+                            when (declaration) {
+                                is FirJavaMethod -> enhancementScope.processFunctionsByName(declaration.name) { symbol ->
                                     val enhanced = (symbol as? FirFunctionSymbol)?.fir
                                     if (enhanced != null && enhanced !in renderedDeclarations) {
                                         enhanced.accept(renderer, null)
@@ -170,6 +168,20 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
                                         renderedDeclarations += enhanced
                                     }
                                     ProcessorAction.NEXT
+                                }
+                                is FirJavaField -> enhancementScope.processPropertiesByName(declaration.name) { symbol ->
+                                    val enhanced = (symbol as? FirPropertySymbol)?.fir
+                                    if (enhanced != null && enhanced !in renderedDeclarations) {
+                                        enhanced.accept(renderer, null)
+                                        renderer.newLine()
+                                        renderedDeclarations += enhanced
+                                    }
+                                    ProcessorAction.NEXT
+                                }
+                                else -> {
+                                    declaration.accept(renderer, null)
+                                    renderer.newLine()
+                                    renderedDeclarations += declaration
                                 }
                             }
                         }
