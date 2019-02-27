@@ -1,0 +1,2 @@
+public/*package*/ open class StaticMembersFromParentClassVisibility : R|error: Symbol not found, for `test/Parent`| {
+}

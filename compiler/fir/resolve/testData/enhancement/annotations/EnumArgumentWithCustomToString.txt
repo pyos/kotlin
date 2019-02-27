@@ -1,0 +1,4 @@
+public open class EnumArgumentWithCustomToString : R|java/lang/Object| {
+    @R|test/EnumArgumentWithCustomToString.EnumAnno|(<Strange Java enum value: org.jetbrains.kotlin.load.java.structure.impl.JavaEnumValueAnnotationArgumentImpl@55b1517f>#()) @R|test/EnumArgumentWithCustomToString.EnumArrayAnno|(<implicitArrayOf>(<Strange Java enum value: org.jetbrains.kotlin.load.java.structure.impl.JavaEnumValueAnnotationArgumentImpl@2ecc8351>#(), <Strange Java enum value: org.jetbrains.kotlin.load.java.structure.impl.JavaEnumValueAnnotationArgumentImpl@62ed1d83>#())) public/*package*/ open operator function annotated(): R|kotlin/Unit|
+
+}

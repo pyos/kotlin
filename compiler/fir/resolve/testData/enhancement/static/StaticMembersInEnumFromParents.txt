@@ -1,0 +1,2 @@
+public/*package*/ final enum class StaticMembersInEnumFromParents : R|java/lang/Enum<test/StaticMembersInEnumFromParents>|, R|error: Symbol not found, for `test/Parent1`|, R|error: Symbol not found, for `test/Parent2`| {
+}

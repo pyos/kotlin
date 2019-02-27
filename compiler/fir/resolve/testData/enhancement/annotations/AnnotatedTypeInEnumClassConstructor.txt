@@ -1,0 +1,2 @@
+public/*package*/ open class AnnotatedTypeInEnumClassConstructor : R|java/lang/Object| {
+}

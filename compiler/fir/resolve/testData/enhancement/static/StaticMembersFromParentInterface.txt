@@ -1,0 +1,2 @@
+public/*package*/ open class StaticMembersFromParentInterface : R|java/lang/Object|, R|error: Symbol not found, for `test/Parent1`|, R|error: Symbol not found, for `test/Parent2`| {
+}

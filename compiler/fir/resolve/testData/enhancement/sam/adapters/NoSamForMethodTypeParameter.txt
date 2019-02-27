@@ -1,0 +1,4 @@
+public/*package*/ open class NoSamForMethodTypeParameter : R|java/lang/Object| {
+    public/*package*/ open operator function foo(runnable1: R|ft<K, K?>|!, runnable2: R|ft<java/lang/Runnable, java/lang/Runnable?>|!): R|kotlin/Unit|
+
+}

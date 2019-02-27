@@ -1,0 +1,2 @@
+public open class SubclassFromNested : R|java/lang/Object|, R|error: Symbol not found, for `test/B.C`| {
+}
