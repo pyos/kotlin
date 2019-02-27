@@ -1,1 +1,6 @@
+public abstract interface ReadOnlyExtendsWildcard : R|java/lang/Object| {
+    public abstract operator function bar(): R|kotlin/Unit|
 
+    public abstract operator function foo(@R|class error: Cannot get class like symbol for annotation /ReadOnly|() x: R|ft<java/util/List<class error: Unexpected type argument: JavaWildcardTypeImpl: PsiType:? extends CharSequence>, java/util/List<class error: Unexpected type argument: JavaWildcardTypeImpl: PsiType:? extends CharSequence>?>|!, @R|org/jetbrains/annotations/NotNull|() y: R|ft<java/lang/Comparable<*>, java/lang/Comparable<*>>|): R|kotlin/Unit|
+
+}

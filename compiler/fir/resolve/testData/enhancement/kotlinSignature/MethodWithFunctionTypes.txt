@@ -1,1 +1,4 @@
+public open class MethodWithFunctionTypes : R|java/lang/Object| {
+    public open operator function foo(f: R|ft<class error: Unexpected classifier: null!, class error: Unexpected classifier: null!>|!): R|ft<class error: Unexpected classifier: null!, class error: Unexpected classifier: null!>|!
 
+}

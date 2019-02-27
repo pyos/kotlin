@@ -9,10 +9,7 @@ import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.fir.BaseTransformedType
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
-import org.jetbrains.kotlin.fir.types.ConeClassLikeType
-import org.jetbrains.kotlin.fir.types.ConeSymbolBasedType
-import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
-import org.jetbrains.kotlin.fir.types.FirTypeRef
+import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.name.FqName
 
@@ -32,8 +29,11 @@ interface FirAnnotationCall : FirCall {
     }
 }
 
+private val FirAnnotationCall.coneClassLikeType: ConeClassLikeType?
+    get() = ((annotationTypeRef as? FirResolvedTypeRef)?.type as? ConeClassLikeType)?.takeIf { it !is ConeClassErrorType }
+
 val FirAnnotationCall.resolvedFqName: FqName?
-    get() = ((annotationTypeRef as? FirResolvedTypeRef)?.type as? ConeClassLikeType)?.symbol?.classId?.asSingleFqName()
+    get() = coneClassLikeType?.symbol?.classId?.asSingleFqName()
 
 val FirAnnotationCall.resolvedClass: FirRegularClass?
-    get() = (((annotationTypeRef as? FirResolvedTypeRef)?.type as? ConeClassLikeType)?.symbol as? FirClassSymbol)?.fir
+    get() = (coneClassLikeType?.symbol as? FirClassSymbol)?.fir

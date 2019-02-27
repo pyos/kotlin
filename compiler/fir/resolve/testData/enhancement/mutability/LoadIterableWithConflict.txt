@@ -1,1 +1,6 @@
+<T> public abstract interface LoadIterableWithConflict : R|java/lang/Object| {
+    @R|class error: Cannot get class like symbol for annotation /ReadOnly|() @R|class error: Cannot get class like symbol for annotation /Mutable|() public abstract operator function getIterable(): R|ft<java/lang/Iterable<ft<T, T?>>, java/lang/Iterable<ft<T, T?>>>|
 
+    public abstract operator function setIterable(@R|class error: Cannot get class like symbol for annotation /ReadOnly|() @R|class error: Cannot get class like symbol for annotation /Mutable|() Iterable: R|ft<java/lang/Iterable<ft<T, T?>>, java/lang/Iterable<ft<T, T?>>>|): R|kotlin/Unit|
+
+}
