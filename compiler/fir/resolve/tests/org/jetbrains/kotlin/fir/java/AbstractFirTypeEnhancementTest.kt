@@ -71,7 +71,7 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
     }
 
     private fun createEnvironment(content: String): KotlinCoreEnvironment {
-        val classpath = mutableListOf(getAnnotationsJar())
+        val classpath = mutableListOf(getAnnotationsJar(), ForTestCompileRuntime.runtimeJarForTests())
         if (InTextDirectivesUtils.isDirectiveDefined(content, "ANDROID_ANNOTATIONS")) {
             classpath.add(ForTestCompileRuntime.androidAnnotationsForTests())
         }
