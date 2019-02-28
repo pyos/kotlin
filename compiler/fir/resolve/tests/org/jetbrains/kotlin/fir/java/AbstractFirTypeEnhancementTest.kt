@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.asJava.finder.JavaElementFinder
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.TopDownAnalyzerFacadeForJVM
+import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.fir.FirRenderer
 import org.jetbrains.kotlin.fir.createSession
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
@@ -39,6 +40,7 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.psiUtil.getChildrenOfType
 import org.jetbrains.kotlin.test.ConfigurationKind
+import org.jetbrains.kotlin.test.InTextDirectivesUtils
 import org.jetbrains.kotlin.test.KotlinTestUtils
 import org.jetbrains.kotlin.test.KotlinTestUtils.getAnnotationsJar
 import org.jetbrains.kotlin.test.KotlinTestUtils.newConfiguration
@@ -68,11 +70,18 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
         super.tearDown()
     }
 
-    private fun createEnvironment(): KotlinCoreEnvironment {
+    private fun createEnvironment(content: String): KotlinCoreEnvironment {
+        val classpath = mutableListOf(getAnnotationsJar())
+        if (InTextDirectivesUtils.isDirectiveDefined(content, "ANDROID_ANNOTATIONS")) {
+            classpath.add(ForTestCompileRuntime.androidAnnotationsForTests())
+        }
+        if (InTextDirectivesUtils.isDirectiveDefined(content, "JVM_ANNOTATIONS")) {
+            classpath.add(ForTestCompileRuntime.jvmAnnotationsForTests())
+        }
         return KotlinCoreEnvironment.createForTests(
             testRootDisposable,
             newConfiguration(
-                ConfigurationKind.JDK_NO_RUNTIME, TestJdkKind.FULL_JDK, listOf(getAnnotationsJar()), listOf(javaFilesDir)
+                ConfigurationKind.JDK_NO_RUNTIME, TestJdkKind.FULL_JDK, classpath, listOf(javaFilesDir)
             ),
             EnvironmentConfigFiles.JVM_CONFIG_FILES
         ).apply {
@@ -110,7 +119,7 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
                 }
             }, ""
         )
-        environment = createEnvironment()
+        environment = createEnvironment(javaLines.joinToString(separator = "\n"))
         val virtualFiles = srcFiles.map {
             object : LightVirtualFile(
                 it.name, JavaLanguage.INSTANCE, StringUtilRt.convertLineSeparators(it.readText())
