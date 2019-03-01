@@ -70,7 +70,7 @@ internal fun FirTypeRef.toNotNullConeKotlinType(): ConeKotlinType =
         else -> ConeKotlinErrorType("Unexpected type reference in JavaClassUseSiteScope: ${this::class.java}")
     }
 
-internal fun JavaType.toNotNullConeKotlinType(session: FirSession): ConeKotlinType {
+internal fun JavaType?.toNotNullConeKotlinType(session: FirSession): ConeKotlinType {
     return toConeKotlinTypeWithNullability(session, isNullable = false)
 }
 
@@ -87,7 +87,7 @@ internal fun JavaClassifierType.toFirResolvedTypeRef(session: FirSession): FirRe
     )
 }
 
-internal fun JavaType.toConeKotlinTypeWithNullability(session: FirSession, isNullable: Boolean): ConeKotlinType {
+internal fun JavaType?.toConeKotlinTypeWithNullability(session: FirSession, isNullable: Boolean): ConeKotlinType {
     return when (this) {
         is JavaClassifierType -> {
             toConeKotlinTypeWithNullability(session, isNullable)
@@ -117,6 +117,10 @@ internal fun JavaType.toConeKotlinTypeWithNullability(session: FirSession, isNul
             }
         }
         is JavaWildcardType -> bound?.toNotNullConeKotlinType(session) ?: run {
+            val classId = ClassId(FqName("kotlin"), FqName("Any"), false)
+            classId.toConeKotlinType(session, emptyArray(), isNullable)
+        }
+        null -> {
             val classId = ClassId(FqName("kotlin"), FqName("Any"), false)
             classId.toConeKotlinType(session, emptyArray(), isNullable)
         }
@@ -177,8 +181,9 @@ internal fun FirAbstractAnnotatedElement.addAnnotationsFrom(javaAnnotationOwner:
     }
 }
 
-internal fun JavaType.toConeProjection(session: FirSession, boundTypeParameter: FirTypeParameter?): ConeKotlinTypeProjection {
+internal fun JavaType?.toConeProjection(session: FirSession, boundTypeParameter: FirTypeParameter?): ConeKotlinTypeProjection {
     return when (this) {
+        null -> StarProjection
         is JavaWildcardType -> {
             val bound = this.bound
             val argumentVariance = if (isExtends) OUT_VARIANCE else IN_VARIANCE
