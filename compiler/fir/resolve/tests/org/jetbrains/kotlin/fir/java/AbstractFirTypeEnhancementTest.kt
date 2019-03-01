@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.fir.FirRenderer
 import org.jetbrains.kotlin.fir.createSession
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaClass
+import org.jetbrains.kotlin.fir.java.declarations.FirJavaConstructor
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaField
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaMethod
 import org.jetbrains.kotlin.fir.java.scopes.JavaClassEnhancementScope
@@ -39,12 +40,9 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.psiUtil.getChildrenOfType
-import org.jetbrains.kotlin.test.ConfigurationKind
-import org.jetbrains.kotlin.test.InTextDirectivesUtils
-import org.jetbrains.kotlin.test.KotlinTestUtils
+import org.jetbrains.kotlin.test.*
 import org.jetbrains.kotlin.test.KotlinTestUtils.getAnnotationsJar
 import org.jetbrains.kotlin.test.KotlinTestUtils.newConfiguration
-import org.jetbrains.kotlin.test.TestJdkKind
 import org.jetbrains.kotlin.test.testFramework.KtUsefulTestCase
 import java.io.File
 import java.io.IOException
@@ -70,6 +68,9 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
         super.tearDown()
     }
 
+    private fun createJarWithForeignAnnotations(): File =
+        MockLibraryUtil.compileJavaFilesLibraryToJar(FOREIGN_ANNOTATIONS_SOURCES_PATH, "foreign-annotations")
+
     private fun createEnvironment(content: String): KotlinCoreEnvironment {
         val classpath = mutableListOf(getAnnotationsJar(), ForTestCompileRuntime.runtimeJarForTests())
         if (InTextDirectivesUtils.isDirectiveDefined(content, "ANDROID_ANNOTATIONS")) {
@@ -77,6 +78,9 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
         }
         if (InTextDirectivesUtils.isDirectiveDefined(content, "JVM_ANNOTATIONS")) {
             classpath.add(ForTestCompileRuntime.jvmAnnotationsForTests())
+        }
+        if (InTextDirectivesUtils.isDirectiveDefined(content, "FOREIGN_ANNOTATIONS")) {
+            classpath.add(createJarWithForeignAnnotations())
         }
         return KotlinCoreEnvironment.createForTests(
             testRootDisposable,
@@ -169,6 +173,15 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
                         for (declaration in javaClass.declarations) {
                             if (declaration in renderedDeclarations) continue
                             when (declaration) {
+                                is FirJavaConstructor -> enhancementScope.processFunctionsByName(javaClass.name) { symbol ->
+                                    val enhanced = (symbol as? FirFunctionSymbol)?.fir
+                                    if (enhanced != null && enhanced !in renderedDeclarations) {
+                                        enhanced.accept(renderer, null)
+                                        renderer.newLine()
+                                        renderedDeclarations += enhanced
+                                    }
+                                    ProcessorAction.NEXT
+                                }
                                 is FirJavaMethod -> enhancementScope.processFunctionsByName(declaration.name) { symbol ->
                                     val enhanced = (symbol as? FirFunctionSymbol)?.fir
                                     if (enhanced != null && enhanced !in renderedDeclarations) {
@@ -202,5 +215,9 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
 
         val expectedFile = File(javaFile.absolutePath.replace(".java", ".txt"))
         KotlinTestUtils.assertEqualsToFile(expectedFile, javaFirDump)
+    }
+
+    companion object {
+        private val FOREIGN_ANNOTATIONS_SOURCES_PATH = "third-party/annotations"
     }
 }
