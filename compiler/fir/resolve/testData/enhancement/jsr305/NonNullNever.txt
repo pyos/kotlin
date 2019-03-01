@@ -1,0 +1,8 @@
+public open class NonNullNever : R|java/lang/Object| {
+    @R|javax/annotation/Nonnull|(<Strange Java enum value: javax/annotation/meta/When.NEVER>#()) public open property field(var): R|ft<kotlin/String, kotlin/String>|
+        public get(): R|ft<kotlin/String, kotlin/String>|
+        public set(value: R|ft<kotlin/String, kotlin/String>|): kotlin/Unit
+
+    @R|class error: Cannot get class like symbol for annotation /MyNullable|() public open operator function foo(@R|javax/annotation/Nonnull|(<Strange Java enum value: javax/annotation/meta/When.NEVER>#()) x: R|ft<kotlin/String, kotlin/String>|, @R|class error: Cannot get class like symbol for annotation /MyNullable|() y: R|ft<kotlin/CharSequence, kotlin/CharSequence?>|!): R|ft<kotlin/String, kotlin/String?>|!
+
+}

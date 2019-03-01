@@ -556,6 +556,34 @@ public class FirTypeEnhancementTestGenerated extends AbstractFirTypeEnhancementT
         }
     }
 
+    @TestMetadata("compiler/fir/resolve/testData/enhancement/jsr305")
+    @TestDataPath("$PROJECT_ROOT")
+    @RunWith(JUnit3RunnerWithInners.class)
+    public static class Jsr305 extends AbstractFirTypeEnhancementTest {
+        private void runTest(String testDataFilePath) throws Exception {
+            KotlinTestUtils.runTest(this::doTest, TargetBackend.ANY, testDataFilePath);
+        }
+
+        public void testAllFilesPresentInJsr305() throws Exception {
+            KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("compiler/fir/resolve/testData/enhancement/jsr305"), Pattern.compile("^(.+)\\.java$"), TargetBackend.ANY, true);
+        }
+
+        @TestMetadata("NonNullNever.java")
+        public void testNonNullNever() throws Exception {
+            runTest("compiler/fir/resolve/testData/enhancement/jsr305/NonNullNever.java");
+        }
+
+        @TestMetadata("Simple.java")
+        public void testSimple() throws Exception {
+            runTest("compiler/fir/resolve/testData/enhancement/jsr305/Simple.java");
+        }
+
+        @TestMetadata("Strange.java")
+        public void testStrange() throws Exception {
+            runTest("compiler/fir/resolve/testData/enhancement/jsr305/Strange.java");
+        }
+    }
+
     @TestMetadata("compiler/fir/resolve/testData/enhancement/kotlinSignature")
     @TestDataPath("$PROJECT_ROOT")
     @RunWith(JUnit3RunnerWithInners.class)
