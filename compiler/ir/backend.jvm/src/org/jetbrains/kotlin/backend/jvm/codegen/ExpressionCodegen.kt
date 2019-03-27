@@ -939,7 +939,10 @@ class ExpressionCodegen(
     private fun unwindBlockStack(endLabel: Label, data: BlockInfo, loop: IrLoop? = null): LoopInfo? {
         return data.handleBlock {
             when {
-                it is TryInfo -> genFinallyBlock(it, null, endLabel, data)
+                it is TryInfo -> {
+                    it.gaps.add(markNewLabel() to endLabel)
+                    genFinallyBlock(it, data)
+                }
                 it is LoopInfo && it.loop == loop -> return it
             }
             unwindBlockStack(endLabel, data, loop)
@@ -991,7 +994,10 @@ class ExpressionCodegen(
         val tryBlockGaps = tryInfo?.gaps?.toList() ?: listOf()
         val tryCatchBlockEnd = Label()
         if (tryInfo != null) {
-            data.handleBlock { genFinallyBlock(tryInfo, tryCatchBlockEnd, null, data) }
+            data.handleBlock { genFinallyBlock(tryInfo, data) }
+            tryInfo.onExit.markLineNumber(startOffset = false)
+            mv.goTo(tryCatchBlockEnd)
+            tryInfo.gaps.add(tryBlockEnd to markNewLabel())
         } else {
             mv.goTo(tryCatchBlockEnd)
         }
@@ -1018,7 +1024,10 @@ class ExpressionCodegen(
             )
 
             if (tryInfo != null) {
-                data.handleBlock { genFinallyBlock(tryInfo, tryCatchBlockEnd, null, data) }
+                data.handleBlock { genFinallyBlock(tryInfo, data) }
+                tryInfo.onExit.markLineNumber(startOffset = false)
+                mv.goTo(tryCatchBlockEnd)
+                tryInfo.gaps.add(clauseEnd to markNewLabel())
             } else if (clause != catches.last()) {
                 mv.goTo(tryCatchBlockEnd)
             }
@@ -1037,12 +1046,12 @@ class ExpressionCodegen(
 
             val finallyStart = markNewLabel()
             // Nothing will cover anything after this point, so don't bother recording the gap here.
-            data.handleBlock { gen(aTry.finallyExpression!!, data).discard() }
+            data.handleBlock { genFinallyBlock(tryInfo, data) }
             mv.load(savedException, JAVA_THROWABLE_TYPE)
             frame.leaveTemp(JAVA_THROWABLE_TYPE)
             mv.athrow()
 
-            // Include the ASTORE into the covered region. That's what javac does as well.
+            // Include the ASTORE into the covered region. This is used by the inliner to detect try-finally.
             genTryCatchCover(defaultCatchStart, tryBlockStart, finallyStart, tryInfo.gaps, null)
         }
 
@@ -1059,14 +1068,8 @@ class ExpressionCodegen(
         mv.visitTryCatchBlock(lastRegionStart, tryEnd, catchStart, type)
     }
 
-    private fun genFinallyBlock(tryInfo: TryInfo, tryCatchBlockEnd: Label?, afterJumpLabel: Label?, data: BlockInfo) {
-        val gapStart = markNewLabel()
-        gen(tryInfo.onExit, data).discard()
-        if (tryCatchBlockEnd != null) {
-            tryInfo.onExit.markLineNumber(startOffset = false)
-            mv.goTo(tryCatchBlockEnd)
-        }
-        tryInfo.gaps.add(gapStart to (afterJumpLabel ?: markNewLabel()))
+    private fun genFinallyBlock(tryInfo: TryInfo, data: BlockInfo) {
+        tryInfo.onExit.accept(this, data).discard()
     }
 
     private fun generateFinallyBlocksIfNeeded(returnType: Type, afterReturnLabel: Label, data: BlockInfo) {
