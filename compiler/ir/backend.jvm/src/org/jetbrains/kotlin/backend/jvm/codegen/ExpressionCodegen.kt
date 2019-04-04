@@ -1142,7 +1142,7 @@ class ExpressionCodegen(
         tryInfo.gaps.add(afterJumpLabel ?: markNewLabel())
     }
 
-    private fun generateFinallyBlocksIfNeeded(returnType: Type, afterReturnLabel: Label, data: BlockInfo) {
+    fun generateFinallyBlocksIfNeeded(returnType: Type, afterReturnLabel: Label, data: BlockInfo) {
         if (data.hasFinallyBlocks()) {
             if (Type.VOID_TYPE != returnType) {
                 val returnValIndex = frame.enterTemp(returnType)
