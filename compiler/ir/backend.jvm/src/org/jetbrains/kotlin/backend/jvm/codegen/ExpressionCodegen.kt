@@ -14,10 +14,9 @@ import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.codegen.*
 import org.jetbrains.kotlin.codegen.AsmUtil.*
 import org.jetbrains.kotlin.codegen.ExpressionCodegen.putReifiedOperationMarkerIfTypeIsReifiedParameter
-import org.jetbrains.kotlin.codegen.inline.NameGenerator
-import org.jetbrains.kotlin.codegen.inline.ReifiedTypeInliner
-import org.jetbrains.kotlin.codegen.inline.ReifiedTypeParametersUsages
-import org.jetbrains.kotlin.codegen.inline.TypeParameterMappings
+import org.jetbrains.kotlin.codegen.inline.*
+import org.jetbrains.kotlin.codegen.inline.ReifiedTypeInliner.OperationKind.AS
+import org.jetbrains.kotlin.codegen.inline.ReifiedTypeInliner.OperationKind.SAFE_AS
 import org.jetbrains.kotlin.codegen.pseudoInsns.fakeAlwaysFalseIfeq
 import org.jetbrains.kotlin.codegen.pseudoInsns.fixStackAndJump
 import org.jetbrains.kotlin.codegen.signature.BothSignatureWriter
@@ -105,10 +104,13 @@ class ExpressionCodegen(
     val irFunction: IrFunction,
     val frame: IrFrameMap,
     val mv: InstructionAdapter,
-    val classCodegen: ClassCodegen
+    val classCodegen: ClassCodegen,
+    val isInlineLambda: Boolean = false
 ) : IrElementVisitor<PromisedValue, BlockInfo>, BaseExpressionCodegen {
 
     private val intrinsics = IrIntrinsicMethods(classCodegen.context.irBuiltIns)
+
+    var finallyDepth = 0
 
     val typeMapper = classCodegen.typeMapper
 
@@ -316,7 +318,7 @@ class ExpressionCodegen(
         data: BlockInfo,
         isSuperCall: Boolean = false
     ): PromisedValue {
-        val callGenerator = getOrCreateCallGenerator(expression, expression.descriptor)
+        val callGenerator = getOrCreateCallGenerator(expression, expression.descriptor, data)
 
         val receiver = expression.dispatchReceiver
         receiver?.apply {
@@ -620,11 +622,30 @@ class ExpressionCodegen(
     }
 
     override fun visitReturn(expression: IrReturn, data: BlockInfo): PromisedValue {
-        val returnType = typeMapper.mapReturnType(irFunction.descriptor)
+        val owner = expression.returnTargetSymbol.owner
+        //TODO: should be owner != irFunction
+        val isNonLocalReturn = state.typeMapper.mapFunctionName(
+            owner.descriptor,
+            OwnerKind.IMPLEMENTATION
+        ) != state.typeMapper.mapFunctionName(irFunction.descriptor, OwnerKind.IMPLEMENTATION)
+        if (isNonLocalReturn && state.isInlineDisabled) {
+            //TODO: state.diagnostics.report(Errors.NON_LOCAL_RETURN_IN_DISABLED_INLINE.on(expression))
+            genThrow(
+                mv, "java/lang/UnsupportedOperationException",
+                "Non-local returns are not allowed with inlining disabled"
+            )
+            return voidValue
+        }
+
+        val returnType = typeMapper.mapReturnType(owner.descriptor)
         val afterReturnLabel = Label()
         expression.value.accept(this, data).coerce(returnType).materialize()
         generateFinallyBlocksIfNeeded(returnType, afterReturnLabel, data)
         expression.markLineNumber(startOffset = true)
+        if (isNonLocalReturn) {
+            val labelName = (owner as IrFunction).name.asString()
+            generateGlobalReturnFlag(mv, labelName)
+        }
         mv.areturn(returnType)
         mv.mark(afterReturnLabel)
         mv.nop()/*TODO check RESTORE_STACK_IN_TRY_CATCH processor*/
@@ -667,7 +688,8 @@ class ExpressionCodegen(
     }
 
     override fun visitTypeOperator(expression: IrTypeOperatorCall, data: BlockInfo): PromisedValue {
-        val asmType = expression.typeOperand.asmType
+        val kotlinType = expression.typeOperand.toKotlinType()
+        val asmType = kotlinType.asmType
         return when (expression.operator) {
             IrTypeOperator.IMPLICIT_COERCION_TO_UNIT -> {
                 expression.argument.accept(this, data).discard()
@@ -686,17 +708,30 @@ class ExpressionCodegen(
             IrTypeOperator.CAST, IrTypeOperator.SAFE_CAST -> {
                 expression.argument.accept(this, data).coerce(AsmTypes.OBJECT_TYPE).materialize()
                 val boxedType = boxType(asmType)
-                generateAsCast(
-                    mv, expression.typeOperand.toKotlinType(), boxedType, expression.operator == IrTypeOperator.SAFE_CAST,
-                    state.languageVersionSettings.isReleaseCoroutines()
-                )
+
+                if (TypeUtils.isReifiedTypeParameter(kotlinType)) {
+                    putReifiedOperationMarkerIfTypeIsReifiedParameter(
+                        kotlinType, if (IrTypeOperator.SAFE_CAST == expression.operator) SAFE_AS else AS, mv, this
+                    )
+                    v.checkcast(boxedType)
+                } else {
+                    generateAsCast(
+                        mv, kotlinType, boxedType, expression.operator == IrTypeOperator.SAFE_CAST,
+                        state.languageVersionSettings.isReleaseCoroutines()
+                    )
+                }
                 MaterialValue(mv, boxedType).coerce(expression.asmType)
             }
 
             IrTypeOperator.INSTANCEOF, IrTypeOperator.NOT_INSTANCEOF -> {
                 expression.argument.accept(this, data).coerce(AsmTypes.OBJECT_TYPE).materialize()
                 val type = boxType(asmType)
-                generateIsCheck(mv, expression.typeOperand.toKotlinType(), type, state.languageVersionSettings.isReleaseCoroutines())
+                if (TypeUtils.isReifiedTypeParameter(kotlinType)) {
+                    putReifiedOperationMarkerIfTypeIsReifiedParameter(kotlinType, ReifiedTypeInliner.OperationKind.IS, mv, this)
+                    v.instanceOf(type)
+                } else {
+                    generateIsCheck(mv, kotlinType, type, state.languageVersionSettings.isReleaseCoroutines())
+                }
                 // TODO remove this type operator, generate an intrinsic call around INSTANCEOF instead
                 if (IrTypeOperator.NOT_INSTANCEOF == expression.operator)
                     Not.BooleanNegation(expression.onStack.coerceToBoolean())
@@ -900,10 +935,18 @@ class ExpressionCodegen(
     }
 
     private fun genFinallyBlock(tryInfo: TryInfo, data: BlockInfo) {
+        finallyDepth++
+        if (isFinallyMarkerRequired()) {
+            generateFinallyMarker(mv, finallyDepth, true)
+        }
         tryInfo.onExit.accept(this, data).discard()
+        if (isFinallyMarkerRequired()) {
+            generateFinallyMarker(mv, finallyDepth, false)
+        }
+        finallyDepth--
     }
 
-    private fun generateFinallyBlocksIfNeeded(returnType: Type, afterReturnLabel: Label, data: BlockInfo) {
+    fun generateFinallyBlocksIfNeeded(returnType: Type, afterReturnLabel: Label, data: BlockInfo) {
         if (data.hasFinallyBlocks()) {
             if (Type.VOID_TYPE != returnType) {
                 val returnValIndex = frame.enterTemp(returnType)
@@ -986,7 +1029,8 @@ class ExpressionCodegen(
         descriptor: CallableDescriptor,
         element: IrMemberAccessExpression?,
         typeParameterMappings: TypeParameterMappings?,
-        isDefaultCompilation: Boolean
+        isDefaultCompilation: Boolean,
+        data: BlockInfo
     ): IrCallGenerator {
         if (element == null) return IrCallGenerator.DefaultCallGenerator
 
@@ -1000,13 +1044,14 @@ class ExpressionCodegen(
         return if (isDefaultCompilation) {
             TODO()
         } else {
-            IrInlineCodegen(this, state, original, typeParameterMappings!!, IrSourceCompilerForInline(state, element, this))
+            IrInlineCodegen(this, state, original, typeParameterMappings!!, IrSourceCompilerForInline(state, element, this, data))
         }
     }
 
     private fun getOrCreateCallGenerator(
         memberAccessExpression: IrMemberAccessExpression,
-        descriptor: CallableDescriptor
+        descriptor: CallableDescriptor,
+        data: BlockInfo
     ): IrCallGenerator {
         val typeArguments =
             if (memberAccessExpression.typeArgumentsCount == 0) {
@@ -1040,7 +1085,7 @@ class ExpressionCodegen(
             }
         }
 
-        return getOrCreateCallGenerator(descriptor, memberAccessExpression, mappings, false)
+        return getOrCreateCallGenerator(descriptor, memberAccessExpression, mappings, false, data)
     }
 
     override fun consumeReifiedOperationMarker(typeParameterDescriptor: TypeParameterDescriptor) {
@@ -1062,6 +1107,11 @@ class ExpressionCodegen(
 
     override fun markLineNumberAfterInlineIfNeeded() {
         //TODO
+    }
+
+    fun isFinallyMarkerRequired(): Boolean {
+        //TODO check lambda
+        return irFunction.isInline || isInlineLambda
     }
 }
 
