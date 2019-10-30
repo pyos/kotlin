@@ -74,7 +74,12 @@ open class InliningContext(
             nameGenerator.subGenerator("lambda"),
             //mark lambda inlined
             hashMapOf(lambdaInfo.lambdaClassType.internalName to null),
-            lambdaInfo
+            lambdaInfo,
+            // Classes in lambdas are not inner to classes in the inline function unless they
+            // capture variables through the lambda object (which is removed during inlining
+            // and all fields are moved into the regenerated parent); but in that case there
+            // will be a functional argument that will make regeneration necessary anyway.
+            false
         )
 
     fun subInlineWithClassRegeneration(
@@ -90,7 +95,8 @@ open class InliningContext(
     fun subInline(
         generator: NameGenerator,
         additionalTypeMappings: Map<String, String?> = emptyMap(),
-        lambdaInfo: LambdaInfo? = this.lambdaInfo
+        lambdaInfo: LambdaInfo? = this.lambdaInfo,
+        classRegeneration: Boolean = this.classRegeneration
     ): InliningContext {
         val isInliningLambda = lambdaInfo != null
         return InliningContext(

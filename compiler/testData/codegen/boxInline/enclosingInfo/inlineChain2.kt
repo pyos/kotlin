@@ -19,10 +19,10 @@ fun box(): String {
     }
 
     var enclosingMethod = res.javaClass.enclosingMethod
-    if (enclosingMethod?.name != "invoke") return "fail 1: ${enclosingMethod?.name}"
+    if (enclosingMethod?.name != "box") return "fail 1: ${enclosingMethod?.name}"
 
     var enclosingClass = res.javaClass.enclosingClass
-    if (enclosingClass?.name != "_2Kt\$box$\$inlined\$call$1") return "fail 2: ${enclosingClass?.name}"
+    if (enclosingClass?.name != "_2Kt") return "fail 2: ${enclosingClass?.name}"
 
     val res2 = call {
         call {
@@ -31,10 +31,10 @@ fun box(): String {
     }
 
     enclosingMethod = res2.javaClass.enclosingMethod
-    if (enclosingMethod?.name != "invoke") return "fail 1: ${enclosingMethod?.name}"
+    if (enclosingMethod?.name != "box") return "fail 1: ${enclosingMethod?.name}"
 
     enclosingClass = res2.javaClass.enclosingClass
-    if (enclosingClass?.name != "_2Kt\$box$\$inlined\$call$2\$lambda$1") return "fail 2: ${enclosingClass?.name}"
+    if (enclosingClass?.name != "_2Kt") return "fail 2: ${enclosingClass?.name}"
 
     return res2()
 }

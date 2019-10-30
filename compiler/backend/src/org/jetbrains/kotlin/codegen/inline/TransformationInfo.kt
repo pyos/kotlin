@@ -73,8 +73,7 @@ class AnonymousObjectTransformationInfo internal constructor(
     val constructorDesc: String?,
     private val isStaticOrigin: Boolean,
     parentNameGenerator: NameGenerator,
-    private val capturesAnonymousObjectThatMustBeRegenerated: Boolean,
-    private val isInliningIrLambda: Boolean
+    private val capturesAnonymousObjectThatMustBeRegenerated: Boolean
 ) : TransformationInfo {
 
     override val nameGenerator by lazy {
@@ -91,7 +90,7 @@ class AnonymousObjectTransformationInfo internal constructor(
         get() = alreadyRegenerated
 
     override fun shouldRegenerate(sameModule: Boolean): Boolean =
-        !alreadyRegenerated && !isInliningIrLambda &&
+        !alreadyRegenerated &&
                 (!functionalArguments.isEmpty() || !sameModule || capturedOuterRegenerated || needReification || capturesAnonymousObjectThatMustBeRegenerated)
 
     override fun canRemoveAfterTransformation(): Boolean {

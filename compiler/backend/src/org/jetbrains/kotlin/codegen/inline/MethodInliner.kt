@@ -596,7 +596,7 @@ class MethodInliner(
                             recordTransformation(
                                 AnonymousObjectTransformationInfo(
                                     className, awaitClassReification, hashMapOf(), false, isAlreadyRegenerated(className), null, true,
-                                    inliningContext.nameGenerator, false, inliningContext.isInliningIrLambda
+                                    inliningContext.nameGenerator, false
                                 )
                             )
                             awaitClassReification = false
@@ -857,8 +857,7 @@ class MethodInliner(
             desc,
             false,
             inliningContext.nameGenerator,
-            capturesAnonymousObjectThatMustBeRegenerated,
-            inliningContext.isInliningIrLambda
+            capturesAnonymousObjectThatMustBeRegenerated
         )
 
         val memoizeAnonymousObject = inliningContext.findAnonymousObjectTransformationInfo(anonymousType)
@@ -1072,6 +1071,8 @@ class MethodInliner(
                 return analyzer.analyze("fake", node)
             } catch (e: AnalyzerException) {
                 throw RuntimeException(e)
+            } catch (e: Throwable) {
+                throw e
             }
 
         }
