@@ -13933,6 +13933,11 @@ public class IrBlackBoxCodegenTestGenerated extends AbstractIrBlackBoxCodegenTes
             runTest("compiler/testData/codegen/box/jvmField/constructorProperty.kt");
         }
 
+        @TestMetadata("fileOrder.kt")
+        public void testFileOrder() throws Exception {
+            runTest("compiler/testData/codegen/box/jvmField/fileOrder.kt");
+        }
+
         @TestMetadata("initializersOrder.kt")
         public void testInitializersOrder() throws Exception {
             runTest("compiler/testData/codegen/box/jvmField/initializersOrder.kt");

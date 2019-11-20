@@ -1,3 +1,4 @@
+// IGNORE_BACKEND_FIR: JVM_IR
 class A(val result: Int) {
     object B {
         fun bar(): Int = 4
