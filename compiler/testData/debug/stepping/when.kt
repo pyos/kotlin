@@ -14,10 +14,11 @@ fun foo(x: Int) {
     }
 }
 
-fun box() {
+suspend fun box() {
     foo(21)
 }
 
+// WITH_COROUTINES
 // JVM_IR backend optimized the when to a switch in the java bytecode.
 // Therefore, the stepping for JVM_IR does not step through the evaluation
 // of each of the conditions, but goes directly to the right body. The
