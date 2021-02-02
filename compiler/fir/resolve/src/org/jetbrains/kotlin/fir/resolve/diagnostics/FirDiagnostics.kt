@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.fir.resolve.diagnostics
 
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.calls.Candidate
@@ -78,6 +79,10 @@ class ConeInstanceAccessBeforeSuperCall(val target: String) : ConeDiagnostic() {
 
 class ConeUnsupportedCallableReferenceTarget(val fir: FirCallableDeclaration<*>) : ConeDiagnostic() {
     override val reason: String get() = "Unsupported declaration for callable reference: ${fir.render()}"
+}
+
+class ConeCannotInferParameterType(val fir: FirValueParameter) : ConeDiagnostic() {
+    override val reason: String get() = "Cannot infer a type for parameter ${fir.render()}"
 }
 
 private fun describeSymbol(symbol: AbstractFirBasedSymbol<*>): String {

@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.fir.declarations.FirClass
 import org.jetbrains.kotlin.fir.originalForSubstitutionOverride
 import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.calls.Candidate
+import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeCannotInferParameterType
 import org.jetbrains.kotlin.fir.scopes.FakeOverrideTypeCalculator
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.fir.scopes.processOverriddenFunctions
@@ -198,31 +199,25 @@ fun ConeKotlinType.isKClassType(): Boolean {
     return classId == StandardClassIds.KClass
 }
 
+private fun ConeTypeProjection.typeOrDefault(default: ConeKotlinType): ConeKotlinType =
+    when (this) {
+        is ConeKotlinTypeProjection -> type
+        is ConeStarProjection -> default
+    }
+
 fun ConeKotlinType.receiverType(session: FirSession): ConeKotlinType? {
     if (!isBuiltinFunctionalType(session) || !isExtensionFunctionType(session)) return null
-    return when (val projection = fullyExpandedType(session).typeArguments.first()) {
-        is ConeKotlinTypeProjection -> projection.type
-        is ConeStarProjection -> session.builtinTypes.nothingType.type
-    }
+    return fullyExpandedType(session).typeArguments.first().typeOrDefault(session.builtinTypes.nothingType.type)
 }
 
 fun ConeKotlinType.returnType(session: FirSession): ConeKotlinType {
     require(this is ConeClassLikeType)
-    return when (val projection = fullyExpandedType(session).typeArguments.last()) {
-        is ConeKotlinTypeProjection -> projection.type
-        is ConeStarProjection -> session.builtinTypes.nullableAnyType.type
-    }
+    return fullyExpandedType(session).typeArguments.last().typeOrDefault(session.builtinTypes.nullableAnyType.type)
 }
 
-fun ConeKotlinType.valueParameterTypes(session: FirSession, withReceiver: Boolean): List<ConeKotlinType> {
+fun ConeKotlinType.valueParameterTypesWithReceiver(session: FirSession): List<ConeKotlinType> {
     require(this is ConeClassLikeType)
-    val toDrop = if (!withReceiver && isExtensionFunctionType(session)) 1 else 0
-    return fullyExpandedType(session).typeArguments.drop(toDrop).dropLast(1).map {
-        when (it) {
-            is ConeKotlinTypeProjection -> it.type
-            is ConeStarProjection -> session.builtinTypes.nothingType.type
-        }
-    }
+    return fullyExpandedType(session).typeArguments.dropLast(1).map { it.typeOrDefault(session.builtinTypes.nothingType.type) }
 }
 
 val FirAnonymousFunction.returnType: ConeKotlinType? get() = returnTypeRef.coneTypeSafe()
@@ -251,16 +246,19 @@ fun extractLambdaInfoFromFunctionalType(
     if (!expectedType.isBuiltinFunctionalType(session)) return null
 
     val returnType = argument.returnType ?: expectedType.returnType(session)
-    // `fun (x: T) = ...` and `fun T.() = ...` are both instances of `T.() -> V`; `fun () = ...` is not.
+    // `fun (x: T) = ...` and `fun T.() = ...` are both instances of `T.() -> V` and `(T) -> V`; `fun () = ...` is not.
     // For lambdas, the existence of the receiver is always implied by the expected type, and a value parameter
     // can never fill its role.
     val receiverType = if (argument.isLambda) expectedType.receiverType(session) else argument.receiverType
-    val expectedParameters = expectedType.valueParameterTypes(session, withReceiver = receiverType == null)
+    val expectedParameters = expectedType.valueParameterTypesWithReceiver(session).let {
+        if (receiverType != null) it.drop(1) else it
+    }
     val parameters = if (argument.isLambda && argument.valueParameters.isEmpty() && expectedParameters.size < 2) {
         expectedParameters // Infer existence of a parameter named `it` of an appropriate type.
     } else {
         argument.valueParameters.mapIndexed { index, parameter ->
-            parameter.returnTypeRef.coneTypeSafe() ?: expectedParameters.getOrNull(index) ?: session.builtinTypes.nothingType.type
+            parameter.returnTypeRef.coneTypeSafe() ?: expectedParameters.getOrNull(index)
+                ?: ConeClassErrorType(ConeCannotInferParameterType(parameter))
         }
     }
 
