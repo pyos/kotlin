@@ -250,14 +250,15 @@ fun extractLambdaInfoFromFunctionalType(
     }
     if (!expectedType.isBuiltinFunctionalType(session)) return null
 
-    val receiverType = argument.receiverType ?: expectedType.receiverType(session)
     val returnType = argument.returnType ?: expectedType.returnType(session)
-    val expectedParameters = expectedType.valueParameterTypes(session, withReceiver = false)
-    val parameters = if (argument.valueParameters.isEmpty()) {
-        expectedParameters
+    // `fun (x: T) = ...` and `fun T.() = ...` are both instances of `T.() -> V`; `fun () = ...` is not.
+    // For lambdas, the existence of the receiver is always implied by the expected type, and a value parameter
+    // can never fill its role.
+    val receiverType = if (argument.isLambda) expectedType.receiverType(session) else argument.receiverType
+    val expectedParameters = expectedType.valueParameterTypes(session, withReceiver = receiverType == null)
+    val parameters = if (argument.isLambda && argument.valueParameters.isEmpty() && expectedParameters.size < 2) {
+        expectedParameters // Infer existence of a parameter named `it` of an appropriate type.
     } else {
-        // TODO: `(A) -> B` is permitted as `A.() -> B` if it's an anonymous function, not a lambda;
-        //   e.g. `fun (x: Any?) = x` can be used as `Any?.() -> Any?`, but `{ it -> it }` cannot.
         argument.valueParameters.mapIndexed { index, parameter ->
             parameter.returnTypeRef.coneTypeSafe() ?: expectedParameters.getOrNull(index) ?: session.builtinTypes.nothingType.type
         }
